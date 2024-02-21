@@ -1,9 +1,9 @@
 import cv2
 import numpy as np
 import os, glob
-
 # from augmentation import *
 from torch.utils.data import Dataset
+import torch
 
 import time
 
@@ -11,43 +11,10 @@ IMAGE_ROOT = "/mnt/d/data/ImageNet"
 LABEL_ROOT = "/mnt/d/data/ImageNet/label.txt"
 
 
-def make_patches(img:np.ndarray, p:int)->np.ndarray:
-    """
-        generate image patches in a serial manner
-
-        - Args
-            img (np.ndarray): an image array. (C,H,W) in which H=W=224
-            p (int): size of patch
-        
-        - Returns
-            patches (np.ndarray): 2-D array of flattened image patches (each patch has a size of P^2*C)
-    """
-    patches = np.array([])
-    x1, y1 = 0, 0
-    _,h,w = img.shape
-
-    for y in range(0, h, p):
-        for x in range(0, w, p):
-            if (h-y) < p or (w-x) < p:
-                break
-            
-            y1 = min(y+p, h)
-            x1 = min(x+p, w)
-
-            tiles = img[:, y:y1, x:x1]
-
-            if patches.size == 0:
-                patches = tiles.reshape(1,-1)
-                
-            else:
-                patches = np.vstack([patches, tiles.reshape(1,-1)]) # reshape(-1) or ravel도 사용 가능. flatten은 카피 떠서 쓰는 거
-
-    return patches
-
 
 #cloned from "https://github.com/YoojLee/vit/blob/main/dataset.py", "https://github.com/boostcampaitech5/level2_cv_semanticsegmentation-cv-11/blob/master/dataset.py"
 class ImageNetDataset(Dataset):
-    def __init__(self, data_root:str, p:int, transforms=None, label_info:str="label.txt", downsample=False):
+    def __init__(self, transforms=None, label_info:str="label.txt", downsample=False):
         """
         Dataset Class for ViT
 
@@ -58,7 +25,7 @@ class ImageNetDataset(Dataset):
             transforms (Transforms): augmentations to be applied for the dataset.
         """
         super(ImageNetDataset, self).__init__()
-        self.p = p
+        # self.p = p
         self.transforms = transforms
         self.label_names = []
         self.index_to_label = {}
@@ -97,13 +64,20 @@ class ImageNetDataset(Dataset):
 
         img = cv2.imread(self.images[index]) # 이미지 경로 읽어오기 (H,W,C)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) # color space 변환 & (C,H,W)로 변경
-        img = img.permute(2,0,1)
+        if self.transforms:
+            img = self.transforms(image=img)['image'] # albumentations 타입의 transform 적용
+        img = img.transpose(2,0,1)
         img = img / 255.            #없어도 알아서 해주지 않나?
+        img = torch.from_numpy(img).float()
 
         label = self.labels[index]
+        # print(label)
+        # print(label.shape)
+        label_array = np.zeros(1000)
+        label_array[int(label)-1]=1
 
-        # if self.transforms:
-            # img = self.transforms(img)['image'] # albumentations 타입의 transform 적용
+        label = torch.from_numpy(label_array)
+   
 
         return img, label
         
