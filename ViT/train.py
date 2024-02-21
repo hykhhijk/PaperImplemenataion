@@ -7,6 +7,7 @@ from dataset import ImageNetDataset
 
 import torch
 import torch.nn as nn
+import torch.optim as optim
 from torch.utils.data import DataLoader
 
 from tqdm import tqdm
@@ -42,6 +43,9 @@ def seed_everything(seed):
 
 
 def train(model, data_loader):
+    model = model.to(device)
+    optimizer = optim.Adam(model.parameters(), lr=0.01)
+    criterion = nn.CrossEntropyLoss()
     epochs = args.epochs+1
     all_losses = []
     all_accs = []
@@ -57,15 +61,17 @@ def train(model, data_loader):
 
             optimizer.zero_grad()
             outputs = model(x)
+
             loss = criterion(outputs, y)
             loss.backward()
             optimizer.step()
-            indices = torch.argmax(outputs, dim=1)
-            correct += (y==indices).sum().item()
+            x_indices = torch.argmax(outputs, dim=1)
+            y_indices = torch.argmax(y, dim=1)
+            correct += (y_indices==x_indices).sum().item()
 
             loss_epoch += loss.item()
         loss_epoch /= len(data_loader)
-        acc = correct / 4500
+        acc = correct / 1281167
         print(loss_epoch)
 
         all_losses.append(loss_epoch)
@@ -77,4 +83,11 @@ def train(model, data_loader):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument("--epochs", type=int, default=300)
+    parser.add_argument("--batch_size", type=int, default=512)
+
     args = parser.parse_args()
+    model = VisionTransformer(dim=768, depth=12, heads=12, output_dim=1000, img_dim=[3,224,224], patch_dim=[3,16,16], batch_size=args.batch_size, mlp_dim=3072)
+    dataset = make_dataset()
+
+    train(model, dataset)
