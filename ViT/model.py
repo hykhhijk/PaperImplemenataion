@@ -46,7 +46,7 @@ class Transformer(nn.Module):
         self.layers = nn.ModuleList([])
         for _ in range(depth):
             self.layers.append(nn.ModuleList([(Attention(dim, heads)),(FeedForward(dim, mlp_dim))]))         
-        self.layers = nn.Sequential()
+        self.layers = nn.Sequential(*self.layers)
 
     def forward(self,x):
         for attn, ffn in self.layers:           #이전의 layers를 list에서 iterating하는 방식은 cuda, cpu device 오류남
@@ -56,7 +56,7 @@ class Transformer(nn.Module):
         
 class VisionTransformer(nn.Module):
 
-    def __init__(self, batch_size, num_classes, dim, depth, heads, mlp_dim, output_dim, img_dim = [3,224,224], patch_dim = [3,56,56], dim_head = 64):
+    def __init__(self, batch_size, dim, depth, heads, mlp_dim, output_dim, img_dim = [3,224,224], patch_dim = [3,56,56], dim_head = 64):
         super().__init__()
         image_h = img_dim[1]
         image_w = img_dim[2]
