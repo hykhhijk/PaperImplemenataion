@@ -10,13 +10,13 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 print(device)
 
 class Attention(nn.Module):
-    def __init__(self, dim, heads = 8):
+    def __init__(self, dim, heads = 8, dropout = 0.):
         super().__init__()
         self.dim = dim
         self.dim_heads = dim // heads
         self.norm = nn.LayerNorm(dim)
         self.to_qkv = nn.Linear(dim, dim * 3)
-        self.MHA = nn.MultiheadAttention(dim, heads, batch_first=True)       #dim means input sequence's dim
+        self.MHA = nn.MultiheadAttention(dim, heads, batch_first=True, dropout=dropout)       #dim means input sequence's dim
 
     def forward(self, x):
         x = self.norm(x)
@@ -27,25 +27,27 @@ class Attention(nn.Module):
         return result
 
 class FeedForward(nn.Module):
-    def __init__(self, dim, mlp_dim):
+    def __init__(self, dim, mlp_dim, dropout = 0.):
         super().__init__()
         layers = []
         layers.append(nn.LayerNorm(dim))
         layers.append(nn.Linear(dim, mlp_dim))
         layers.append(nn.GELU())
-        layers.append(nn.Linear(mlp_dim, dim))
+        layers.append(nn.Dropout(dropout)),
+        layers.append(nn.Linear(mlp_dim, dim)),
+        layers.append(nn.Dropout(dropout))
         self.net = nn.Sequential(*layers)
 
     def forward(self,x):
         return self.net(x)
     
 class Transformer(nn.Module):
-    def __init__(self, dim, depth, heads, mlp_dim):       #in paper head_dim = dim * 4
+    def __init__(self, dim, depth, heads, mlp_dim, dropout =0.):       #in paper head_dim = dim * 4
         super().__init__()
         self.norm = nn.LayerNorm(dim)
         self.layers = nn.ModuleList([])
         for _ in range(depth):
-            self.layers.append(nn.ModuleList([(Attention(dim, heads)),(FeedForward(dim, mlp_dim))]))         
+            self.layers.append(nn.ModuleList([(Attention(dim, heads, dropout)),(FeedForward(dim, mlp_dim, dropout))]))         
         self.layers = nn.Sequential(*self.layers)
 
     def forward(self,x):
@@ -56,7 +58,7 @@ class Transformer(nn.Module):
         
 class VisionTransformer(nn.Module):
 
-    def __init__(self, batch_size, dim, depth, heads, mlp_dim, output_dim, img_dim = [3,224,224], patch_dim = [3,56,56], dim_head = 64):
+    def __init__(self, batch_size, dim, depth, heads, mlp_dim, output_dim, img_dim = [3,224,224], patch_dim = [3,56,56], dim_head = 64, dropout =0.):
         super().__init__()
         image_h = img_dim[1]
         image_w = img_dim[2]
@@ -81,7 +83,7 @@ class VisionTransformer(nn.Module):
         self.cls_token =nn.Parameter(torch.randn(1, dim))
         self.pos_embedding =nn.Parameter(torch.randn(1, n_patches+1, dim))
 
-        self.transformer = Transformer(dim, depth, heads, mlp_dim)
+        self.transformer = Transformer(dim, depth, heads, mlp_dim, dropout)
 
         self.norm = nn.LayerNorm(dim)
         self.classification_head = nn.Linear(dim, output_dim)
@@ -96,7 +98,7 @@ class VisionTransformer(nn.Module):
         x = patches.contiguous().view(self.batch_size, self.n_patches, self.embedding_dim)
         x = self.projection(x)
 
-        cls_tokens = self.cls_token.repeat(self.batch_size, 1, 1)
+        cls_tokens = self.cls_token.repeat(self.batch_size, 1, 1)       #(1, dim) -> (b, 1, dim)
 
         x = torch.cat([cls_tokens, x], dim=1)
         x = x + self.pos_embedding[:, :(self.n_patches+1)]
