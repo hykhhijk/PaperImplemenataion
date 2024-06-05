@@ -49,7 +49,7 @@ def train(model, data_loader):
     epochs = args.epochs+1
     all_losses = []
     all_accs = []
-    for epoch in range(epochs):
+    for epoch in tqdm(range(epochs)):
         loss = 0
         loss_epoch = 0
         model.train()
