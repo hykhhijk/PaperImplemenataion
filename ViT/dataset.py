@@ -50,10 +50,13 @@ class ImageNetDataset(Dataset):
 
         self.images = list(self.images_labels.keys())
         self.labels = list(self.images_labels.values())
+        #downsample for train fast
+        self.images = self.images[::100]
+        self.labels = self.labels[::100]
 
 
     def __len__(self):
-        return len(self.images_labels)
+        return len(self.images)
 
     
     def __getitem__(self, index: int):
@@ -61,7 +64,6 @@ class ImageNetDataset(Dataset):
         label까지 같이 넘기는 형태로 코드 수정할 것.
         이렇게 하려면 label을 one-hot으로 펼쳐줘야 함... -> 원핫으로 안펼쳐줘도 되는 듯?
         """
-
         img = cv2.imread(self.images[index]) # 이미지 경로 읽어오기 (H,W,C)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) # color space 변환 & (C,H,W)로 변경
         if self.transforms:

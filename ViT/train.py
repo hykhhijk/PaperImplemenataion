@@ -24,13 +24,14 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 def make_dataset():
     train_transform, val_transform = augmentation.get_transform(224)
     train_dataset = ImageNetDataset(transforms= train_transform)
+    dataset_size = len(train_dataset)
     train_loader = DataLoader(
         dataset= train_dataset,
         batch_size=args.batch_size,
         shuffle=True,
         num_workers=6,      #cpu 코어 절반
         drop_last=True)
-    return train_loader
+    return train_loader, dataset_size
 
 def seed_everything(seed):
     torch.manual_seed(seed)
@@ -49,13 +50,13 @@ def train(model, data_loader):
     epochs = args.epochs+1
     all_losses = []
     all_accs = []
-    for epoch in tqdm(range(epochs)):
+    for epoch in range(epochs):
         loss = 0
         loss_epoch = 0
         model.train()
         acc = 0.0
         correct = 0
-        for x, y in data_loader:
+        for x, y in tqdm(data_loader):
             x = x.to(device)
             y = y.to(device)
 
@@ -71,7 +72,7 @@ def train(model, data_loader):
 
             loss_epoch += loss.item()
         loss_epoch /= len(data_loader)
-        acc = correct / 1281167
+        acc = correct / len_dataset         #change here later
         print(loss_epoch)
 
         all_losses.append(loss_epoch)
@@ -84,10 +85,11 @@ def train(model, data_loader):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--epochs", type=int, default=300)
-    parser.add_argument("--batch_size", type=int, default=512)
+    parser.add_argument("--batch_size", type=int, default=16)
 
     args = parser.parse_args()
     model = VisionTransformer(dim=768, depth=12, heads=12, output_dim=1000, img_dim=[3,224,224], patch_dim=[3,16,16], batch_size=args.batch_size, mlp_dim=3072)
-    dataset = make_dataset()
+    dataset, len_dataset = make_dataset()
+    print(f"Image len: {len_dataset}")
 
     train(model, dataset)
