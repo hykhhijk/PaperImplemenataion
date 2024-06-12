@@ -16,7 +16,7 @@ import argparse
 
 import random
 import numpy as np
-# import wandb
+import wandb
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 #check path
 # print(sys.path)
@@ -42,8 +42,20 @@ def seed_everything(seed):
     np.random.seed(seed)
     random.seed(seed)
 
+def wandb_config(args):
+    wandb.init(config={'max_epoch':args.epochs},
+            project='ViT',
+            name=f'ViT_e={args.epochs}'
+            )
 
 def train(model, data_loader):
+    if args.wandb=="True":
+        wandb_config(args)
+    else:
+        print("#########################################################")
+        print("wandb not logging....")
+        print("#########################################################")
+    print(f'Start training..')
     model = model.to(device)
     optimizer = optim.Adam(model.parameters(), lr=0.01)
     criterion = nn.CrossEntropyLoss()
@@ -72,12 +84,15 @@ def train(model, data_loader):
 
             loss_epoch += loss.item()
         loss_epoch /= len(data_loader)
-        acc = correct / len_dataset         #change here later
+        acc = (correct / args.batch_size) * 100         #change here later
         print(loss_epoch)
+        print(acc)
+        if args.wandb=="True":
+            wandb.log({"Accuracy":acc}, step = epoch)
 
         all_losses.append(loss_epoch)
         all_accs.append(acc)
-
+    wandb.finish()
 
 
 
@@ -86,6 +101,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--epochs", type=int, default=300)
     parser.add_argument("--batch_size", type=int, default=16)
+    parser.add_argument("--wandb", type=str, default="True")
 
     args = parser.parse_args()
     model = VisionTransformer(dim=768, depth=12, heads=12, output_dim=1000, img_dim=[3,224,224], patch_dim=[3,16,16], batch_size=args.batch_size, mlp_dim=3072)
